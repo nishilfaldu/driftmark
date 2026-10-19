@@ -173,27 +173,39 @@ const demo2Frames = [];
   }
 }
 
-function renderDemo2(i) {
-  const { input, kept, blocks, streaming } = demo2Frames[i];
+const caret = (color) => `<span class="caret" style="display:inline-block;width:7px;height:1em;vertical-align:-0.15em;background:${color}"></span>`;
+
+// Today every block goes through remend on every update. With the change,
+// blocks before the stable length are kept as they are.
+function blockList(blocks, kept, streaming, today) {
   let at = 0;
   let cutDone = kept === 0;
   let html = "";
   blocks.forEach((b, k) => {
-    const isKept = at + b.length <= kept;
-    if (!isKept && !cutDone) {
-      html += '<div class="cut"></div>';
+    const beforeLine = at + b.length <= kept;
+    const isKept = !today && beforeLine;
+    // Today's column gets an invisible line, so both columns stay aligned.
+    if (!beforeLine && !cutDone) {
+      html += `<div class="cut"${today ? ' style="border-color:transparent"' : ""}></div>`;
       cutDone = true;
     }
     const last = streaming && k === blocks.length - 1;
-    const text = esc(b.replace(/\n+$/, "")) + (last ? '<span class="caret" style="display:inline-block;width:7px;height:1em;vertical-align:-0.15em;background:var(--blue)"></span>' : "");
-    html += `<div class="blk ${isKept ? "kept" : "rep"}"><span class="no">${k + 1}</span><span class="txt">${text}</span><span class="n">${isKept ? "–" : fmt(b.length)}</span></div>`;
+    const text = esc(b.replace(/\n+$/, "")) + (last ? caret(today ? "var(--red)" : "var(--blue)") : "");
+    const cls = isKept ? "kept" : today ? "rep-today" : "rep";
+    html += `<div class="blk ${cls}"><span class="no">${k + 1}</span><span class="txt">${text}</span><span class="n">${isKept ? "–" : fmt(b.length)}</span></div>`;
     at += b.length;
   });
-  $("demo2-blocks").innerHTML = html;
+  return html;
+}
+
+function renderDemo2(i) {
+  const { input, kept, blocks, streaming } = demo2Frames[i];
+  $("demo2-today-blocks").innerHTML = blockList(blocks, kept, streaming, true);
+  $("demo2-blocks").innerHTML = blockList(blocks, kept, streaming, false);
   const today = input.length;
   const pr = input.length - kept;
-  $("demo2-today").innerHTML = `${fmt(today)} <small>characters</small>`;
-  $("demo2-pr").innerHTML = `${fmt(pr)} <small>characters</small>`;
+  $("demo2-today").innerHTML = `${fmt(today)} <small>characters repaired</small>`;
+  $("demo2-pr").innerHTML = `${fmt(pr)} <small>characters repaired</small>`;
   $("demo2-today-bar").style.width = `${(100 * today) / answer.length}%`;
   $("demo2-pr-bar").style.width = `${(100 * pr) / answer.length}%`;
   $("demo2-count").textContent = `Update ${fmt(i + 1)} of ${fmt(demo2Frames.length)}`;
