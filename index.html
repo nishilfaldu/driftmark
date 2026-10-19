@@ -18,8 +18,8 @@
   <div class="wrap">
     <a class="brand" href="#top"><i></i>driftmark</a>
     <nav>
-      <a href="#pr-685">#685 Link fix</a>
-      <a href="#pr-689">#689 Speed-up</a>
+      <a href="https://github.com/vercel/streamdown/pull/685">#685 Link fix</a>
+      <a href="https://github.com/vercel/streamdown/pull/689">#689 Speed-up</a>
       <a class="wide" href="https://github.com/nishilfaldu/driftmark">GitHub</a>
     </nav>
   </div>
@@ -27,28 +27,13 @@
 
 <main id="top">
   <div class="wrap">
-    <section class="hero">
-      <span class="eyebrow">vercel/streamdown · Nishil Faldu</span>
-      <h1>Two pull requests to Streamdown</h1>
-      <p class="lede">A bug fix and a speed-up for Vercel's streaming Markdown component. The demos run the real code.</p>
-      <div class="cards">
-        <a class="card" href="https://github.com/vercel/streamdown/pull/685">
-          <span class="num">#685 · Bug fix</span>
-          <span class="title">fix(remend): complete links only in the current block</span>
-        </a>
-        <a class="card" href="https://github.com/vercel/streamdown/pull/689">
-          <span class="num">#689 · Performance</span>
-          <span class="title">perf(streamdown): repair only the end of a streaming message</span>
-        </a>
-      </div>
-    </section>
 
     <!-- PR 1 -->
     <section class="part" id="pr-685">
       <div class="part-head">
-        <span class="eyebrow">#685 · Bug fix</span>
+        <span class="eyebrow">Bug fix</span>
         <h2>A stray <code>[</code> damages the text after it</h2>
-        <p class="prose">Remend pairs it with text in later paragraphs. #685 completes links only in the current block.</p>
+        <p class="prose">Remend pairs it with text in later paragraphs. The fix completes links only in the current block.</p>
       </div>
 
       <div class="panel" id="demo1">
@@ -62,17 +47,15 @@
         <div class="cols3">
           <div class="col"><span class="col-label">Text from the model</span><pre class="raw" id="demo1-raw"></pre></div>
           <div class="col"><span class="col-label today">Today</span><div class="reader" id="demo1-main"></div><div class="added" id="demo1-main-added"></div></div>
-          <div class="col"><span class="col-label pr">With #685</span><div class="reader" id="demo1-pr"></div><div class="added ok" id="demo1-pr-added"></div></div>
+          <div class="col"><span class="col-label pr">With the fix</span><div class="reader" id="demo1-pr"></div><div class="added ok" id="demo1-pr-added"></div></div>
         </div>
       </div>
-
-      <a class="more" href="https://github.com/vercel/streamdown/pull/685">Read #685 on GitHub →</a>
     </section>
 
     <!-- PR 2 -->
     <section class="part" id="pr-689">
       <div class="part-head">
-        <span class="eyebrow">#689 · Performance</span>
+        <span class="eyebrow">Performance</span>
         <h2>Repair only the end of the message</h2>
         <p class="prose">Every update repaired the whole message again. Now only the last two blocks are repaired.</p>
       </div>
@@ -93,7 +76,7 @@
           <div><div class="blocks" id="demo2-blocks"></div></div>
           <div>
             <div class="stat"><span class="k today">Today repairs</span><span class="v" id="demo2-today">0</span><div class="meter"><span id="demo2-today-bar" style="background:var(--red)"></span></div></div>
-            <div class="stat"><span class="k pr">With #689</span><span class="v" id="demo2-pr">0</span><div class="meter"><span id="demo2-pr-bar" style="background:var(--blue)"></span></div></div>
+            <div class="stat"><span class="k pr">With the change</span><span class="v" id="demo2-pr">0</span><div class="meter"><span id="demo2-pr-bar" style="background:var(--blue)"></span></div></div>
             <span class="counter" id="demo2-count"></span>
           </div>
         </div>
@@ -105,7 +88,7 @@
       <div class="sub-head"><h3>Main-thread time, Chrome on an Apple M1</h3></div>
       <div class="tablewrap">
         <table>
-          <thead><tr><th>Speed</th><th>Answer</th><th class="num">Today</th><th class="num">With #689</th><th class="num">Change</th></tr></thead>
+          <thead><tr><th>Speed</th><th>Answer</th><th class="num">Today</th><th class="num">With the change</th><th class="num">Change</th></tr></thead>
           <tbody>
             <tr><td>200 tokens/s</td><td>Mixed</td><td class="num">16.4 s</td><td class="num">15.1 s</td><td class="num pr">−7.9%</td></tr>
             <tr><td>200 tokens/s</td><td>Code-heavy</td><td class="num">14.5 s</td><td class="num">14.7 s</td><td class="num muted">noise</td></tr>
@@ -119,8 +102,8 @@
 
       <div class="sub-head"><h3>Time per update</h3></div>
       <div class="panel chart">
-        <div class="legend"><span><i style="background:var(--red)"></i>Today</span><span><i style="background:var(--blue)"></i>With #689</span></div>
-        <svg id="time" viewBox="0 0 720 300" role="img" aria-label="Time per update. Today it goes from 2.2 ms to 5.4 ms. With #689 it goes from 2.0 ms to 4.7 ms."></svg>
+        <div class="legend"><span><i style="background:var(--red)"></i>Today</span><span><i style="background:var(--blue)"></i>With the change</span></div>
+        <svg id="time" viewBox="0 0 720 300" role="img" aria-label="Time per update. Today it goes from 2.2 ms to 5.4 ms. With the change it goes from 2.0 ms to 4.7 ms."></svg>
       </div>
 
       <div class="sub-head"><h3>The stable length moves only when remend changed nothing</h3></div>
@@ -133,23 +116,9 @@
         </div>
         <div class="pairs" id="rule"></div>
       </div>
-
-      <div class="sub-head"><h3>Why it's stacked on #670 and #685</h3></div>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>Remend</th><th>Full repair</th><th>End-only repair</th><th>Same?</th></tr></thead>
-          <tbody id="why670"></tbody>
-        </table>
-      </div>
-
-      <a class="more" href="https://github.com/vercel/streamdown/pull/689">Read #689 on GitHub →</a>
     </section>
   </div>
 </main>
-
-<footer class="wrap">
-  <p>By Nishil Faldu · <a href="https://github.com/nishilfaldu/driftmark">Source</a></p>
-</footer>
 
 <script type="module" src="app.js"></script>
 </body>

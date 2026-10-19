@@ -1,12 +1,11 @@
-// remend from upstream main and from #685, the #689 branch's tail repair (with
-// its own remend, which includes #670 and #685), and marked to render output.
+// remend from upstream main and from the link fix, the speed-up branch's tail
+// repair, and marked to render output.
 import remendMain from "./vendor/remend-main.js";
 import remendPr685 from "./vendor/remend-pr685.js";
 import { marked } from "./vendor/marked.js";
 import {
   advanceStableLength,
   parseMarkdownIntoBlocks,
-  remend as remendStacked,
   repairStream,
 } from "./vendor/tail-repair.js";
 
@@ -35,7 +34,7 @@ function player({ frames, render, button, range, interval = 55, hold = 2600 }) {
   };
 }
 
-/* #685: live link repair */
+/* Link fix: live repair */
 
 const examples = [
   {
@@ -144,7 +143,7 @@ tabs.onclick = (e) => {
 };
 selectExample(0);
 
-/* #689: live tail repair */
+/* Speed-up: live tail repair */
 
 const answer = [
   "## Install\n\n",
@@ -211,15 +210,51 @@ const chars = [
   [2522, 84840, 128],
 ];
 const maxChars = 84840;
-$("chars").innerHTML =
-  '<div class="row head-row"><span class="head">Update</span><span class="head today">Today repairs</span><span class="head pr">With #689</span></div>' +
+const charsEl = $("chars");
+charsEl.innerHTML =
+  '<div class="row head-row"><span class="head">Update</span><span class="head today">Today repairs</span><span class="head pr">With the change</span></div>' +
   chars
-    .map(([u, today, pr]) => `<div class="row">
+    .map(([u]) => `<div class="row">
       <span class="upd"><b>Update ${fmt(u)}</b><span>of 2,522</span></span>
-      <span class="cell"><span class="bar" style="width:${(100 * today) / maxChars}%;background:var(--red)"></span><span class="val"><b>${fmt(today)}</b> characters</span></span>
-      <span class="cell"><span class="bar" style="width:${(100 * pr) / maxChars}%;background:var(--blue)"></span><span class="val"><b>${fmt(pr)}</b> characters</span></span>
+      <span class="cell"><span class="bar" style="background:var(--red)"></span><span class="val"><b>0</b> characters</span></span>
+      <span class="cell"><span class="bar" style="background:var(--blue)"></span><span class="val"><b>0</b> characters</span></span>
     </div>`)
     .join("");
+
+// Grow each row's bars and count up to the measured values, one row after
+// another.
+const charCells = [...charsEl.querySelectorAll(".row:not(.head-row)")].map((row, k) =>
+  [...row.querySelectorAll(".cell")].map((cell, side) => ({
+    bar: cell.querySelector(".bar"),
+    num: cell.querySelector("b"),
+    target: chars[k][side + 1],
+    delay: k * 450,
+  })),
+).flat();
+let charsFrame = 0;
+function drawChars(t) {
+  for (const c of charCells) {
+    const e = 1 - (1 - Math.min(1, Math.max(0, (t - c.delay) / 1100))) ** 3;
+    c.bar.style.width = `${(100 * c.target * e) / maxChars}%`;
+    c.num.textContent = fmt(Math.round(c.target * e));
+  }
+}
+function playChars() {
+  cancelAnimationFrame(charsFrame);
+  if (reducedMotion) return drawChars(Infinity);
+  const start = performance.now();
+  const step = (now) => {
+    drawChars(now - start);
+    if (now - start < 2300) charsFrame = requestAnimationFrame(step);
+  };
+  charsFrame = requestAnimationFrame(step);
+}
+// Off screen the chart shows its final values; it replays on each entry.
+drawChars(Infinity);
+new IntersectionObserver(([entry]) => {
+  if (entry.isIntersecting) playChars();
+  else { cancelAnimationFrame(charsFrame); drawChars(Infinity); }
+}, { threshold: 0.4 }).observe(charsEl);
 
 /* When the stable length moves */
 
@@ -233,23 +268,6 @@ const link = [["One"], ["Two"], ["# Three [link"]];
 $("rule").innerHTML =
   `<div class="pair">${ruleColumn(same, 1)}<span class="sym pr" title="Remend changed nothing: the stable length moves">=</span>${ruleColumn(same, 1)}</div>` +
   `<div class="pair">${ruleColumn(link, 1)}<span class="sym today" title="Remend added text: the stable length stays">≠</span>${ruleColumn([...link, ["](streamdown:incomplete-link)", "add"]], 2, true)}</div>`;
-
-/* Why #689 waits for #670 and #685, computed live */
-
-const stackText = "Call foo(**kwargs) to forward them.\n\nGlob src/**/test.js to find tests.\n\nThe next paragraph is still stream";
-const stable = "Call foo(**kwargs) to forward them.\n\n";
-const tailOf = (s) => `…${esc(s.slice(-26)).replace(/\*\*$/, '<span class="junk">**</span>')}`;
-$("why670").innerHTML = [
-  ["Today (main)", remendMain],
-  ["With #670 and #685", remendStacked],
-]
-  .map(([label, fn]) => {
-    const whole = fn(stackText);
-    const tail = stable + fn(stackText.slice(stable.length));
-    const ok = whole === tail;
-    return `<tr><td>${label}</td><td class="mono">${tailOf(whole)}</td><td class="mono">${tailOf(tail)}</td><td class="${ok ? "pr" : "today"}">${ok ? "Yes" : "No, a stray ** appears"}</td></tr>`;
-  })
-  .join("");
 
 /* Time per update chart */
 
