@@ -181,6 +181,20 @@ pre.code .add { color: var(--blue); }
 pre.code .rem { color: var(--ink-3); text-decoration: line-through; }
 
 
+/* Before and after, in the demos' colors */
+.ba { display: grid; max-width: 620px; margin-top: 6px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.ba-row { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 12px 16px; color: var(--ink); }
+.ba-row + .ba-row { border-top: 1px solid var(--line); }
+.ba-k { display: inline-flex; align-items: center; gap: 8px; font: 500 0.75rem/1 var(--f-mono); letter-spacing: 0.04em; text-transform: uppercase; }
+.ba-k::before { content: ""; width: 8px; height: 8px; border-radius: 2px; }
+.ba-row.before { background: linear-gradient(90deg, var(--red-soft), transparent 60%); }
+.ba-row.before .ba-k { color: var(--red); }
+.ba-row.before .ba-k::before { background: var(--red); }
+.ba-row.after { background: linear-gradient(90deg, var(--blue-soft), transparent 60%); }
+.ba-row.after .ba-k { color: var(--blue); }
+.ba-row.after .ba-k::before { background: var(--blue); }
+@media (max-width: 480px) { .ba-row { grid-template-columns: 1fr; gap: 6px; } }
+
 /* Card deck: the card in front scrolls with the page; the other card peeks
    out above it and comes to the front on click, Next, arrow keys or swipe. */
 .switch { display: inline-flex; gap: 2px; padding: 3px; margin-top: 20px; border: 1px solid var(--line-2); border-radius: 8px; }
