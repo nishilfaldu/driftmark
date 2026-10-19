@@ -175,7 +175,7 @@ const demo2Frames = [];
 
 const caret = (color) => `<span class="caret" style="display:inline-block;width:7px;height:1em;vertical-align:-0.15em;background:${color}"></span>`;
 
-// Today every block goes through remend on every update. With the change,
+// Before, every block goes through remend on every update. After,
 // blocks before the stable length are kept as they are.
 function blockList(blocks, kept, streaming, today) {
   let at = 0;
@@ -184,7 +184,7 @@ function blockList(blocks, kept, streaming, today) {
   blocks.forEach((b, k) => {
     const beforeLine = at + b.length <= kept;
     const isKept = !today && beforeLine;
-    // Today's column gets an invisible line, so both columns stay aligned.
+    // The before column gets an invisible line, so both columns stay aligned.
     if (!beforeLine && !cutDone) {
       html += `<div class="cut"${today ? ' style="border-color:transparent"' : ""}></div>`;
       cutDone = true;
@@ -224,7 +224,7 @@ const chars = [
 const maxChars = 84840;
 const charsEl = $("chars");
 charsEl.innerHTML =
-  '<div class="row head-row"><span class="head">Update</span><span class="head today">Today repairs</span><span class="head pr">With the change</span></div>' +
+  '<div class="row head-row"><span class="head">Update</span><span class="head today">Before</span><span class="head pr">After</span></div>' +
   chars
     .map(([u]) => `<div class="row">
       <span class="upd"><b>Update ${fmt(u)}</b><span>of 2,522</span></span>

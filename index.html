@@ -33,7 +33,7 @@
       <div class="part-head">
         <span class="eyebrow">Bug fix</span>
         <h2>A stray <code>[</code> damages the text after it</h2>
-        <p class="prose">Remend pairs it with text in later paragraphs. The fix completes links only in the current block.</p>
+        <p class="prose">Before: remend pairs it with text in later paragraphs. After: links complete only in the current block.</p>
       </div>
 
       <div class="panel" id="demo1">
@@ -46,8 +46,8 @@
         </div>
         <div class="cols3">
           <div class="col"><span class="col-label">Text from the model</span><pre class="raw" id="demo1-raw"></pre></div>
-          <div class="col"><span class="col-label today">Today</span><div class="reader" id="demo1-main"></div><div class="added" id="demo1-main-added"></div></div>
-          <div class="col"><span class="col-label pr">With the fix</span><div class="reader" id="demo1-pr"></div><div class="added ok" id="demo1-pr-added"></div></div>
+          <div class="col"><span class="col-label today">Before</span><div class="reader" id="demo1-main"></div><div class="added" id="demo1-main-added"></div></div>
+          <div class="col"><span class="col-label pr">After</span><div class="reader" id="demo1-pr"></div><div class="added ok" id="demo1-pr-added"></div></div>
         </div>
       </div>
     </section>
@@ -57,14 +57,14 @@
       <div class="part-head">
         <span class="eyebrow">Performance</span>
         <h2>Repair only the end of the message</h2>
-        <p class="prose">Every update repaired the whole message again. Now only the last two blocks are repaired.</p>
+        <p class="prose">Before: every update repaired the whole message. After: only the last two blocks are repaired.</p>
       </div>
 
       <div class="panel" id="demo2">
         <div class="panel-bar">
           <div class="legend">
-            <span><i class="sw-today"></i>Repaired today</span>
-            <span><i class="sw-rep"></i>Repaired with the change</span>
+            <span><i class="sw-today"></i>Repaired before</span>
+            <span><i class="sw-rep"></i>Repaired after</span>
             <span><i class="sw-kept"></i>Kept</span>
             <span><i class="sw-line"></i>Stable length</span>
           </div>
@@ -76,11 +76,11 @@
         </div>
         <div class="tail-grid">
           <div>
-            <div class="stat"><span class="k today">Today</span><span class="v" id="demo2-today">0</span><div class="meter"><span id="demo2-today-bar" style="background:var(--red)"></span></div></div>
+            <div class="stat"><span class="k today">Before</span><span class="v" id="demo2-today">0</span><div class="meter"><span id="demo2-today-bar" style="background:var(--red)"></span></div></div>
             <div class="blocks" id="demo2-today-blocks"></div>
           </div>
           <div>
-            <div class="stat"><span class="k pr">With the change</span><span class="v" id="demo2-pr">0</span><div class="meter"><span id="demo2-pr-bar" style="background:var(--blue)"></span></div></div>
+            <div class="stat"><span class="k pr">After</span><span class="v" id="demo2-pr">0</span><div class="meter"><span id="demo2-pr-bar" style="background:var(--blue)"></span></div></div>
             <div class="blocks" id="demo2-blocks"></div>
           </div>
         </div>
@@ -92,7 +92,7 @@
       <div class="sub-head"><h3>Main-thread time, Chrome on an Apple M1</h3></div>
       <div class="tablewrap">
         <table>
-          <thead><tr><th>Speed</th><th>Answer</th><th class="num">Today</th><th class="num">With the change</th><th class="num">Change</th></tr></thead>
+          <thead><tr><th>Speed</th><th>Answer</th><th class="num">Before</th><th class="num">After</th><th class="num">Change</th></tr></thead>
           <tbody>
             <tr><td>200 tokens/s</td><td>Mixed</td><td class="num">16.4 s</td><td class="num">15.1 s</td><td class="num pr">−7.9%</td></tr>
             <tr><td>200 tokens/s</td><td>Code-heavy</td><td class="num">14.5 s</td><td class="num">14.7 s</td><td class="num muted">noise</td></tr>
@@ -106,8 +106,8 @@
 
       <div class="sub-head"><h3>Time per update</h3></div>
       <div class="panel chart">
-        <div class="legend"><span><i style="background:var(--red)"></i>Today</span><span><i style="background:var(--blue)"></i>With the change</span></div>
-        <svg id="time" viewBox="0 0 720 300" role="img" aria-label="Time per update. Today it goes from 2.2 ms to 5.4 ms. With the change it goes from 2.0 ms to 4.7 ms."></svg>
+        <div class="legend"><span><i style="background:var(--red)"></i>Before</span><span><i style="background:var(--blue)"></i>After</span></div>
+        <svg id="time" viewBox="0 0 720 300" role="img" aria-label="Time per update. Before, it goes from 2.2 ms to 5.4 ms. After, it goes from 2.0 ms to 4.7 ms."></svg>
       </div>
 
       <div class="sub-head"><h3>The stable length moves only when remend changed nothing</h3></div>
@@ -115,7 +115,7 @@
         <div class="panel-bar">
           <div class="legend">
             <span><i class="sw-today"></i>Added by remend</span>
-            <span>Left: from the model · Right: after remend</span>
+            <span>Left: from the model · Right: repaired</span>
           </div>
         </div>
         <div class="pairs" id="rule"></div>
