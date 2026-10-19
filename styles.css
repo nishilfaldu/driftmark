@@ -180,3 +180,23 @@ pre.code .cm { color: var(--ink-3); }
 pre.code .add { color: var(--blue); }
 pre.code .rem { color: var(--ink-3); text-decoration: line-through; }
 
+
+/* Card deck: the card in front scrolls with the page; the other card peeks
+   out above it and comes to the front on click, Next, arrow keys or swipe. */
+.switch { display: inline-flex; gap: 2px; padding: 3px; margin-top: 20px; border: 1px solid var(--line-2); border-radius: 8px; }
+.switch button { font: 500 0.88rem/1 var(--f-body); color: var(--ink-2); background: transparent; border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+.switch button:hover { color: var(--ink); }
+.switch button[aria-selected="true"] { color: var(--bg); background: var(--ink); }
+.deck { position: relative; margin-block: 72px 96px; }
+.deck-card { background: #050505; border: 1px solid var(--line-2); border-radius: 16px; overflow: hidden; transform-origin: 50% 0; transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s; }
+.deck-card.front { position: relative; z-index: 2; }
+.deck-card.back { position: absolute; inset: 0; z-index: 1; transform: translateY(-46px) scale(0.95); opacity: 0.65; }
+.deck-card.back:hover { opacity: 0.85; }
+.card-strip { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--line); font: 500 0.92rem/1.2 var(--f-body); text-align: left; cursor: pointer; }
+.card-strip em { margin-left: 10px; font: 400 0.78rem var(--f-mono); font-style: normal; color: var(--ink-3); }
+.card-strip .next { color: var(--ink-2); white-space: nowrap; }
+.card-strip:hover .next { color: var(--ink); }
+.deck-card.back .card-strip .next { visibility: hidden; }
+.card-body { display: grid; gap: 28px; padding: 40px 32px 48px; }
+@media (max-width: 640px) { .card-body { padding: 28px 16px 32px; } .card-strip { padding: 14px 16px; } }
+@media (prefers-reduced-motion: reduce) { .deck-card { transition: none; } }

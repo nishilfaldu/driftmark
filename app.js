@@ -303,3 +303,62 @@ $("rule").innerHTML =
   }
   $("time").innerHTML = s;
 }
+
+/* Card deck */
+
+{
+  const deck = $("deck");
+  const cards = [...deck.querySelectorAll(".deck-card")];
+  const tabsEl = [...document.querySelectorAll(".switch button")];
+  let front = 0;
+
+  const show = (i, { scroll = true, record = true } = {}) => {
+    front = i;
+    cards.forEach((card, k) => {
+      card.classList.toggle("front", k === i);
+      card.classList.toggle("back", k !== i);
+      card.querySelector(".card-body").inert = k !== i;
+    });
+    for (const t of tabsEl) t.setAttribute("aria-selected", String(Number(t.dataset.to) === i));
+    if (record) history.replaceState(null, "", `#${cards[i].id}`);
+    // Bring the top of the new card into view if the reader had scrolled past it.
+    const top = deck.getBoundingClientRect().top - 120;
+    if (scroll && top < 0) scrollBy({ top, behavior: reducedMotion ? "auto" : "smooth" });
+  };
+
+  const other = () => (front + 1) % cards.length;
+  for (const card of cards) card.querySelector(".card-strip").onclick = () => show(other());
+  for (const t of tabsEl) t.onclick = () => show(Number(t.dataset.to));
+
+  addEventListener("keydown", (e) => {
+    if (e.target.closest("input, textarea, select") || e.altKey || e.metaKey || e.ctrlKey) return;
+    if (e.key === "ArrowRight" && front < cards.length - 1) show(front + 1);
+    if (e.key === "ArrowLeft" && front > 0) show(front - 1);
+  });
+
+  let touch = null;
+  deck.addEventListener("touchstart", (e) => {
+    touch = e.target.closest("input, button, .tabs") ? null : [e.touches[0].clientX, e.touches[0].clientY];
+  }, { passive: true });
+  deck.addEventListener("touchend", (e) => {
+    if (!touch) return;
+    const dx = e.changedTouches[0].clientX - touch[0];
+    const dy = e.changedTouches[0].clientY - touch[1];
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 1.5 * Math.abs(dy)) show(other());
+    touch = null;
+  });
+
+  const fromHash = () => {
+    const i = cards.findIndex((c) => `#${c.id}` === location.hash);
+    if (i >= 0) show(i, { scroll: false });
+  };
+  addEventListener("hashchange", fromHash);
+  for (const a of document.querySelectorAll('.intro a[href^="#"]')) {
+    a.onclick = (e) => {
+      e.preventDefault();
+      show(cards.findIndex((c) => `#${c.id}` === a.getAttribute("href")));
+    };
+  }
+  show(0, { scroll: false, record: false });
+  fromHash();
+}

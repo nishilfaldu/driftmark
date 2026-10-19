@@ -27,10 +27,13 @@
 
 <main id="top">
   <div class="wrap">
-    <p class="intro">Two pull requests I sent to Streamdown, Vercel's component for showing streaming AI answers: a <a href="#pr-685">link fix</a> and a <a href="#pr-689">speed-up</a>.</p>
+    <p class="intro">Two pull requests I sent to Streamdown, Vercel's component for showing streaming AI answers: a <a href="#link-fix">link fix</a> and a <a href="#speed-up">speed-up</a>.</p>
+    <div class="switch" role="tablist" aria-label="Pull requests"><button role="tab" type="button" data-to="0">Link fix</button><button role="tab" type="button" data-to="1">Speed-up</button></div>
 
-    <!-- PR 1 -->
-    <section class="part" id="pr-685">
+    <div class="deck" id="deck">
+    <article class="deck-card front" id="link-fix" aria-label="Link fix">
+      <button class="card-strip" type="button"><span>Link fix<em>1 of 2</em></span><span class="next">Next: Speed-up →</span></button>
+      <div class="card-body">
       <div class="part-head">
         <h2 class="name">Link fix</h2>
         <p class="tagline">A stray <code>[</code> damages the text after it</p>
@@ -51,10 +54,12 @@
           <div class="col"><span class="col-label pr">After</span><div class="reader" id="demo1-pr"></div><div class="added ok" id="demo1-pr-added"></div></div>
         </div>
       </div>
-    </section>
+      </div>
+    </article>
 
-    <!-- PR 2 -->
-    <section class="part" id="pr-689">
+    <article class="deck-card back" id="speed-up" aria-label="Speed-up">
+      <button class="card-strip" type="button"><span>Speed-up<em>2 of 2</em></span><span class="next">Next: Link fix →</span></button>
+      <div class="card-body" inert>
       <div class="part-head">
         <h2 class="name">Speed-up</h2>
         <p class="tagline">Repair only the end of the message</p>
@@ -121,7 +126,9 @@
         </div>
         <div class="pairs" id="rule"></div>
       </div>
-    </section>
+      </div>
+    </article>
+    </div>
   </div>
 </main>
 
