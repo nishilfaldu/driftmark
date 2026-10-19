@@ -1,0 +1,261 @@
+From 61ee07ebbd636a697b5d42dfb5bab5ee80b8e91d Mon Sep 17 00:00:00 2001
+From: Nishil Faldu <faldund@outlook.com>
+Date: Mon, 19 Oct 2026 00:32:58 -0700
+Subject: [PATCH] fix(remend): complete links only in the current block
+
+An unclosed `[` or `](` in an earlier paragraph, list item, heading or
+table row added `](streamdown:incomplete-link)` to later text, or
+dropped everything after it. Link text can't continue past the end of
+its block, so remend now completes links and images only in the
+current block: the one at the end of the text.
+---
+ .changeset/remend-link-block-scope.md         |  5 ++
+ .../remend/__tests__/link-block-scope.test.ts | 72 ++++++++++++++++
+ packages/remend/src/link-image-handler.ts     | 84 ++++++++++++++++---
+ 3 files changed, 150 insertions(+), 11 deletions(-)
+ create mode 100644 .changeset/remend-link-block-scope.md
+ create mode 100644 packages/remend/__tests__/link-block-scope.test.ts
+
+diff --git a/.changeset/remend-link-block-scope.md b/.changeset/remend-link-block-scope.md
+new file mode 100644
+index 0000000..fd0b372
+--- /dev/null
++++ b/.changeset/remend-link-block-scope.md
+@@ -0,0 +1,5 @@
++---
++"remend": patch
++---
++
++Complete unfinished links and images only in the current block: the paragraph, list item, heading or table row at the end of the text. An unclosed `[` or `](` in an earlier block no longer adds `](streamdown:incomplete-link)` to later text, or drops the text after it.
+diff --git a/packages/remend/__tests__/link-block-scope.test.ts b/packages/remend/__tests__/link-block-scope.test.ts
+new file mode 100644
+index 0000000..7fe26d0
+--- /dev/null
++++ b/packages/remend/__tests__/link-block-scope.test.ts
+@@ -0,0 +1,72 @@
++import { describe, expect, it } from "vitest";
++import remend from "../src";
++import { findLastInlineBlockStart } from "../src/link-image-handler";
++
++describe("link healing stays in the last inline block", () => {
++  it("does not close a bracket from an earlier paragraph", () => {
++    expect(remend("See [1 for details.\n\nThe next paragraph")).toBe(
++      "See [1 for details.\n\nThe next paragraph"
++    );
++    expect(remend("Arrays use x[i notation.\n\nThen we")).toBe(
++      "Arrays use x[i notation.\n\nThen we"
++    );
++  });
++
++  it("keeps later paragraphs after an earlier unfinished URL", () => {
++    const text =
++      "Read [the docs](https://example.com/guide\n\nNext paragraph keeps streaming";
++    expect(remend(text)).toBe(text);
++  });
++
++  it('does not pair a later "](" with a bracket from an earlier block', () => {
++    const text = "Text [a\n\nb](https://exa";
++    expect(remend(text)).toBe(text);
++  });
++
++  it("does not move an image's later paragraphs into its alt text", () => {
++    expect(remend("![diagram\n\nThe caption follows")).toBe(
++      "![diagram\n\nThe caption follows"
++    );
++  });
++
++  it("treats list items, headings and table rows as separate blocks", () => {
++    expect(remend("- item [one\n- item two")).toBe("- item [one\n- item two");
++    expect(remend("# Title [x\nBody text")).toBe("# Title [x\nBody text");
++    expect(remend("| a [b | c |\n| d | e")).toBe("| a [b | c |\n| d | e");
++  });
++
++  it("still heals an incomplete link in the current block", () => {
++    expect(remend("Done.\n\nSee [the docs")).toBe(
++      "Done.\n\nSee [the docs](streamdown:incomplete-link)"
++    );
++    expect(remend("See [1 here.\n\nRead [the docs](https://exa")).toBe(
++      "See [1 here.\n\nRead [the docs](streamdown:incomplete-link)"
++    );
++    expect(remend("- item [one\n- item [two")).toBe(
++      "- item [one\n- item [two](streamdown:incomplete-link)"
++    );
++    expect(remend("> quote [link\n> continues")).toBe(
++      "> quote [link\n> continues](streamdown:incomplete-link)"
++    );
++    expect(remend("- item [link\n  continues")).toBe(
++      "- item [link\n  continues](streamdown:incomplete-link)"
++    );
++  });
++
++  it("leaves earlier brackets alone in text-only mode", () => {
++    expect(
++      remend("See [1 for details.\n\nRead [the docs", { linkMode: "text-only" })
++    ).toBe("See [1 for details.\n\nRead the docs");
++  });
++
++  it("finds the start of the last inline block", () => {
++    expect(findLastInlineBlockStart("one\ntwo")).toBe(0);
++    expect(findLastInlineBlockStart("one\n\ntwo")).toBe(5);
++    expect(findLastInlineBlockStart("one\n\n")).toBe(5);
++    expect(findLastInlineBlockStart("- a\n- b")).toBe(4);
++    expect(findLastInlineBlockStart("# h\ntext")).toBe(4);
++    expect(findLastInlineBlockStart("text\n# h")).toBe(5);
++    expect(findLastInlineBlockStart("```\ncode\n```\nafter")).toBe(13);
++    expect(findLastInlineBlockStart("a\n---\nb")).toBe(6);
++  });
++});
+diff --git a/packages/remend/src/link-image-handler.ts b/packages/remend/src/link-image-handler.ts
+index 66cabd0..9847f3e 100644
+--- a/packages/remend/src/link-image-handler.ts
++++ b/packages/remend/src/link-image-handler.ts
+@@ -16,7 +16,8 @@ export const INCOMPLETE_IMAGE_PLACEHOLDER = "streamdown:incomplete-image";
+ const handleIncompleteUrl = (
+   text: string,
+   lastParenIndex: number,
+-  linkMode: LinkMode
++  linkMode: LinkMode,
++  blockStart: number
+ ): string | null => {
+   const afterParen = text.substring(lastParenIndex + 2);
+   if (afterParen.includes(")")) {
+@@ -27,7 +28,11 @@ const handleIncompleteUrl = (
+   // Now find the matching opening bracket for the ] before (
+   const openBracketIndex = findMatchingOpeningBracket(text, lastParenIndex);
+ 
+-  if (openBracketIndex === -1 || isInsideCodeBlock(text, openBracketIndex)) {
++  // The link text must start in the same block as its "]("
++  if (
++    openBracketIndex < blockStart ||
++    isInsideCodeBlock(text, openBracketIndex)
++  ) {
+     return null;
+   }
+ 
+@@ -53,10 +58,54 @@ const handleIncompleteUrl = (
+   return `${beforeLink}[${altOrLinkText}](streamdown:incomplete-link)`;
+ };
+ 
++const blankLinePattern = /^[ \t]*$/;
++const fenceLinePattern = /^ {0,3}(?:`{3,}|~{3,})/;
++const thematicBreakPattern =
++  /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,}|=+[ \t]*)$/;
++const headingPattern = /^ {0,3}#{1,6}(?:[ \t]|$)/;
++const blockStartPattern = /^[ \t]*(?:[*+-]|\d{1,9}[.)])(?:[ \t]|$)|^ {0,3}\|/;
++
++// Index where the last inline block starts. Link text cannot continue past a
++// blank line, a fence, a thematic break or setext underline, a heading, a
++// list item, or a table row, so brackets before this index are literal.
++// Scans backwards, so the cost is proportional to the last block.
++export const findLastInlineBlockStart = (text: string): number => {
++  let lineEnd = text.length;
++  let isLastLine = true;
++  while (lineEnd >= 0) {
++    const lineStart = text.lastIndexOf("\n", lineEnd - 1) + 1;
++    const line = text.slice(lineStart, lineEnd);
++    if (
++      !isLastLine &&
++      (blankLinePattern.test(line) ||
++        fenceLinePattern.test(line) ||
++        thematicBreakPattern.test(line))
++    ) {
++      return lineEnd + 1;
++    }
++    if (headingPattern.test(line)) {
++      return isLastLine ? lineStart : lineEnd + 1;
++    }
++    if (blockStartPattern.test(line)) {
++      return lineStart;
++    }
++    if (lineStart === 0) {
++      return 0;
++    }
++    lineEnd = lineStart - 1;
++    isLastLine = false;
++  }
++  return 0;
++};
++
+ // Helper to find the first incomplete [ (for text-only mode)
+ // Always returns a valid index since callers guarantee text[maxPos] is an incomplete [
+-const findFirstIncompleteBracket = (text: string, maxPos: number): number => {
+-  for (let j = 0; j < maxPos; j++) {
++const findFirstIncompleteBracket = (
++  text: string,
++  maxPos: number,
++  blockStart: number
++): number => {
++  for (let j = blockStart; j < maxPos; j++) {
+     if (text[j] === "[" && !isInsideCodeBlock(text, j)) {
+       // Skip if it's an image
+       if (j > 0 && text[j - 1] === "!") {
+@@ -86,7 +135,8 @@ const findFirstIncompleteBracket = (text: string, maxPos: number): number => {
+ const handleIncompleteText = (
+   text: string,
+   i: number,
+-  linkMode: LinkMode
++  linkMode: LinkMode,
++  blockStart: number
+ ): string | null => {
+   // Check if there's a ! before it
+   const isImage = i > 0 && text[i - 1] === "!";
+@@ -107,7 +157,7 @@ const handleIncompleteText = (
+     // For links, handle based on linkMode
+     if (linkMode === "text-only") {
+       // Find the first incomplete [ and strip just that bracket
+-      const firstIncomplete = findFirstIncompleteBracket(text, i);
++      const firstIncomplete = findFirstIncompleteBracket(text, i, blockStart);
+       return (
+         text.substring(0, firstIncomplete) + text.substring(firstIncomplete + 1)
+       );
+@@ -131,7 +181,7 @@ const handleIncompleteText = (
+ 
+     if (linkMode === "text-only") {
+       // Find the first incomplete [ and strip just that bracket
+-      const firstIncomplete = findFirstIncompleteBracket(text, i);
++      const firstIncomplete = findFirstIncompleteBracket(text, i, blockStart);
+       return (
+         text.substring(0, firstIncomplete) + text.substring(firstIncomplete + 1)
+       );
+@@ -147,10 +197,22 @@ const healTrailingLinkOrImage = (text: string, linkMode: LinkMode): string => {
+   // Look for patterns like [text]( or ![text]( at the end of text
+   // We need to handle nested brackets in the link text
+ 
++  // Brackets in earlier blocks are literal text. Healing them would append a
++  // closer to the wrong block, or drop every block after them.
++  const blockStart = findLastInlineBlockStart(text);
++
+   // Start from the end and look for ]( pattern
+   const lastParenIndex = text.lastIndexOf("](");
+-  if (lastParenIndex !== -1 && !isInsideCodeBlock(text, lastParenIndex)) {
+-    const result = handleIncompleteUrl(text, lastParenIndex, linkMode);
++  if (
++    lastParenIndex >= blockStart &&
++    !isInsideCodeBlock(text, lastParenIndex)
++  ) {
++    const result = handleIncompleteUrl(
++      text,
++      lastParenIndex,
++      linkMode,
++      blockStart
++    );
+     if (result !== null) {
+       return result;
+     }
+@@ -160,11 +222,11 @@ const healTrailingLinkOrImage = (text: string, linkMode: LinkMode): string => {
+   // Search backwards for an opening bracket that doesn't have a matching closing bracket
+   for (
+     let i = text.lastIndexOf("[");
+-    i !== -1;
++    i >= blockStart;
+     i = i === 0 ? -1 : text.lastIndexOf("[", i - 1)
+   ) {
+     if (!isInsideCodeBlock(text, i)) {
+-      const result = handleIncompleteText(text, i, linkMode);
++      const result = handleIncompleteText(text, i, linkMode, blockStart);
+       if (result !== null) {
+         return result;
+       }
+-- 
+2.39.5 (Apple Git-154)
+

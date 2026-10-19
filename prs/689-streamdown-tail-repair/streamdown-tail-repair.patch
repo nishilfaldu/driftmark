@@ -1,0 +1,470 @@
+From 43c6616e69aefcaab0285c700d8cbe844a59c4b4 Mon Sep 17 00:00:00 2001
+From: Nishil Faldu <faldund@outlook.com>
+Date: Mon, 19 Oct 2026 01:22:04 -0700
+Subject: [PATCH] perf(streamdown): repair only the end of a streaming message
+
+On every streaming update, Streamdown ran remend over the whole message
+and ran three regex checks (footnote references, footnote definitions,
+link definitions) over the whole message. The work per update grew with
+the length of the answer.
+
+Each message now keeps a stable length: the end of every block except
+the last two, taken from an update where remend changed nothing. Later
+updates repair only the text after it. The three checks keep their
+previous result and scan only where a new match can end.
+
+The output equals a full repair because remend now completes syntax
+only in the current block (#670 for emphasis, #685 for links).
+---
+ .changeset/streamdown-tail-repair.md          |   5 +
+ .../__tests__/stream-repair.test.ts           | 162 ++++++++++++++++++
+ packages/streamdown/index.tsx                 |  44 ++++-
+ packages/streamdown/lib/parse-blocks.tsx      |  84 ++++++++-
+ packages/streamdown/lib/stream-repair.ts      |  58 +++++++
+ 5 files changed, 340 insertions(+), 13 deletions(-)
+ create mode 100644 .changeset/streamdown-tail-repair.md
+ create mode 100644 packages/streamdown/__tests__/stream-repair.test.ts
+ create mode 100644 packages/streamdown/lib/stream-repair.ts
+
+diff --git a/.changeset/streamdown-tail-repair.md b/.changeset/streamdown-tail-repair.md
+new file mode 100644
+index 0000000..304b699
+--- /dev/null
++++ b/.changeset/streamdown-tail-repair.md
+@@ -0,0 +1,5 @@
++---
++"streamdown": patch
++---
++
++While streaming, repair only the end of the message instead of the whole message on every update. The footnote and link-definition checks now scan only the new text. Rendered output is unchanged.
+diff --git a/packages/streamdown/__tests__/stream-repair.test.ts b/packages/streamdown/__tests__/stream-repair.test.ts
+new file mode 100644
+index 0000000..b737473
+--- /dev/null
++++ b/packages/streamdown/__tests__/stream-repair.test.ts
+@@ -0,0 +1,162 @@
++import remend from "remend";
++import { describe, expect, it } from "vitest";
++import {
++  hasFootnoteDefinition,
++  hasFootnoteReference,
++  hasLinkDefinition,
++  parseMarkdownIntoBlocks,
++} from "../lib/parse-blocks";
++import {
++  advanceStableLength,
++  repairStream,
++  type StreamRepairState,
++} from "../lib/stream-repair";
++
++// The full-document patterns that the incremental checks replace.
++const footnoteReferencePattern = /\[\^[\w-]{1,200}\](?!:)/;
++const footnoteDefinitionPattern = /\[\^[\w-]{1,200}\]:/;
++const linkDefinitionPattern = /^ {0,3}\[[^\]]+\]:/m;
++
++// Streamed as Streamdown does: repair, split into blocks, advance. Every
++// repaired prefix must equal remend over the whole prefix.
++const documents = [
++  "# Title\n\nFirst paragraph with **bold** and *italic*.\n\nSecond with a [link](https://example.com) and `code`.\n\nThird **unfinished",
++  "Intro\n\n- one **a**\n- two [b](/b)\n\n  continued\n\n1. first\n2. second *em*\n\nAfter the list `x`\n",
++  "| a | b |\n| --- | --- |\n| **x** | [y](/y) |\n| 3 | 4 |\n\nText after the table with ~~strike~~.\n",
++  "Before\n\n```ts\nconst a = '**';\n\nconst b = `x`;\n```\n\nAfter the fence with **bold\n\nand more",
++  "Math $x$ and\n\n$$\na = b\n\n= c\n$$\n\nThen `inline` and **strong**.\n",
++  "> quote with *em*\n> more\n\nSetext\n===\n\npara\n---\n\nend [unfinished link",
++  "Call foo(**kwargs) to forward.\n\nGlob src/**/test.js.\n\nThe next paragraph *streams* on.\n",
++  "See [ref] here.\n\n[ref]: https://example.com\n\nFootnote[^1] text.\n\n[^1]: note\n",
++  // A closer appended at the end must not make an earlier open block final.
++  "Before\n\n$$\nx = 1\n\ny **2\n\nstill math\n$$\n\nafter *em*\n",
++  "Text [a\n\nb](https://exa\n\nc **d\n\ne",
++];
++
++const chunked = (text: string, seed: number): string[] => {
++  const chunks: string[] = [];
++  let state = seed;
++  for (let index = 0; index < text.length; ) {
++    state = (state * 1_103_515_245 + 12_345) % 2_147_483_648;
++    const size = 1 + (state % 4);
++    chunks.push(text.slice(index, index + size));
++    index += size;
++  }
++  return chunks;
++};
++
++// Returns each input whose tail repair differs from a full repair.
++const stream = (inputs: string[]) => {
++  let state: StreamRepairState | null = null;
++  const mismatches: string[] = [];
++  for (const input of inputs) {
++    state = repairStream(state, input, undefined);
++    if (state.repaired !== remend(input)) {
++      mismatches.push(input);
++    }
++    advanceStableLength(state, parseMarkdownIntoBlocks(state.repaired));
++  }
++  return { state, mismatches };
++};
++
++describe("tail-bounded stream repair", () => {
++  it("matches a full repair at every prefix", () => {
++    for (const document of documents) {
++      for (const seed of [1, 2, 3]) {
++        let text = "";
++        const inputs = chunked(document, seed).map((chunk) => {
++          text += chunk;
++          return text;
++        });
++        expect(stream(inputs).mismatches).toEqual([]);
++      }
++    }
++  });
++
++  it("skips the settled prefix once later blocks exist", () => {
++    const { state } = stream([
++      "One.\n\nTwo.\n\nThree.\n\nFour",
++      "One.\n\nTwo.\n\nThree.\n\nFour and",
++    ]);
++    expect(state?.stableLength).toBeGreaterThan(0);
++  });
++
++  it("repairs the whole input after a rewrite, CR input, or new options", () => {
++    let { state } = stream(["One.\n\nTwo.\n\nThree.\n\nFour **x"]);
++    state = repairStream(state, "Different **text", undefined);
++    expect(state.stableLength).toBe(0);
++    expect(state.repaired).toBe(remend("Different **text"));
++
++    state = repairStream(state, "Different **text\r\nmore", undefined);
++    expect(state.stableLength).toBe(0);
++
++    const options = { links: false };
++    state = repairStream(state, "Different **text\r\nmore [x", options);
++    expect(state.repaired).toBe(remend("Different **text\r\nmore [x", options));
++  });
++});
++
++describe("incremental footnote and link-definition checks", () => {
++  // Parsing an unrelated document first resets each check's memo, so the
++  // second call is a full check of that prefix.
++  const fresh = (input: string): string[] => {
++    parseMarkdownIntoBlocks("unrelated reset document\n");
++    return parseMarkdownIntoBlocks(input);
++  };
++
++  it("matches a full check at every prefix", () => {
++    const label = "x".repeat(200);
++    const inputs = [
++      "Intro paragraph.\n\nSee note [^1] here.\n\nMore text.\n",
++      "Intro.\n\nText [^a]: is a definition.\n\nMore.\n",
++      `Intro.\n\nLong [^${label}] label.\n\nMore [^${label}x] too long.\n`,
++      "Intro [x](/u).\n\nThen\n[ref]: https://example.com\n\nafter\n",
++      "a ] b\n\n[multi\nline]: /u\n\nend\n",
++      "> [q]: /quoted\n\npara\n",
++    ];
++    for (const document of inputs) {
++      for (const seed of [1, 2]) {
++        let text = "";
++        for (const chunk of chunked(document, seed)) {
++          text += chunk;
++          const expected = fresh(text);
++          parseMarkdownIntoBlocks(text.slice(0, -chunk.length) || " ");
++          expect(parseMarkdownIntoBlocks(text)).toEqual(expected);
++        }
++      }
++    }
++  });
++
++  it("gives each check the same answer as its full regex", () => {
++    const checks = [
++      [hasFootnoteReference, footnoteReferencePattern],
++      [hasFootnoteDefinition, footnoteDefinitionPattern],
++      [hasLinkDefinition, linkDefinitionPattern],
++    ] as const;
++    const pieces = [
++      "[",
++      "]",
++      "^",
++      ":",
++      "-",
++      "a",
++      " ",
++      "\n",
++      "\n\n",
++      "[^n]",
++      "]:",
++      "[x]: /u",
++    ];
++    let state = 7717;
++    for (let run = 0; run < 300; run += 1) {
++      let text = "";
++      for (let step = 0; step < 80; step += 1) {
++        state = (state * 1_103_515_245 + 12_345) % 2_147_483_648;
++        text += pieces[state % pieces.length];
++        for (const [check, pattern] of checks) {
++          expect(check(text)).toBe(pattern.test(text));
++        }
++      }
++    }
++  });
++});
+diff --git a/packages/streamdown/index.tsx b/packages/streamdown/index.tsx
+index e25fe04..5de1f73 100644
+--- a/packages/streamdown/index.tsx
++++ b/packages/streamdown/index.tsx
+@@ -53,6 +53,11 @@ import { rehypeBlockDirection } from "./lib/rehype/block-direction";
+ import { rehypeLiteralTagContent } from "./lib/rehype/literal-tag-content";
+ import { remarkCodeMeta } from "./lib/remark/code-meta";
+ import { remarkDisableAutolinkProtocols } from "./lib/remark/disable-autolink-protocols";
++import {
++  advanceStableLength,
++  repairStream,
++  type StreamRepairState,
++} from "./lib/stream-repair";
+ import type { CSVSeparator } from "./lib/table/utils";
+ import {
+   defaultTranslations,
+@@ -728,14 +733,32 @@ export const Streamdown = memo(
+ 
+     // Apply remend to fix incomplete markdown BEFORE parsing into blocks
+     // This prevents partial list items from being interpreted as setext headings
++    // Tail-bounded repair state for this message. It is checked against each
++    // input, so a render React discards cannot affect a later one.
++    const streamRepairRef = useRef<StreamRepairState | null>(null);
+     const processedChildren = useMemo(() => {
+       if (typeof children !== "string") {
+         return "";
+       }
+-      let result =
+-        mode === "streaming" && shouldParseIncompleteMarkdown
+-          ? remend(children, remendOptions)
+-          : children;
++      let result = children;
++      if (mode === "streaming" && shouldParseIncompleteMarkdown) {
++        // Block offsets come from the default parser and must match the
++        // repaired text, so custom parsers and tag preprocessing repair whole.
++        const canRepairTail =
++          parseMarkdownIntoBlocksFn === parseMarkdownIntoBlocks &&
++          !literalTagContent?.length &&
++          allowedTagNames.length === 0;
++        if (canRepairTail) {
++          streamRepairRef.current = repairStream(
++            streamRepairRef.current,
++            children,
++            remendOptions
++          );
++          result = streamRepairRef.current.repaired;
++        } else {
++          result = remend(children, remendOptions);
++        }
++      }
+ 
+       // Escape markdown metacharacters inside literal-tag-content tags so that
+       // children are rendered as plain text rather than parsed as markdown.
+@@ -760,12 +783,17 @@ export const Streamdown = memo(
+       remendOptions,
+       allowedTagNames,
+       literalTagContent,
++      parseMarkdownIntoBlocksFn,
+     ]);
+ 
+-    const blocks = useMemo(
+-      () => parseMarkdownIntoBlocksFn(processedChildren),
+-      [processedChildren, parseMarkdownIntoBlocksFn]
+-    );
++    const blocks = useMemo(() => {
++      const parsed = parseMarkdownIntoBlocksFn(processedChildren);
++      const repair = streamRepairRef.current;
++      if (repair?.repaired === processedChildren) {
++        advanceStableLength(repair, parsed);
++      }
++      return parsed;
++    }, [processedChildren, parseMarkdownIntoBlocksFn]);
+ 
+     // Render blocks directly. The previous displayBlocks + useTransition path
+     // could be starved by sibling urgent updates when animated was off (#550),
+diff --git a/packages/streamdown/lib/parse-blocks.tsx b/packages/streamdown/lib/parse-blocks.tsx
+index 6902938..6ace83c 100644
+--- a/packages/streamdown/lib/parse-blocks.tsx
++++ b/packages/streamdown/lib/parse-blocks.tsx
+@@ -3,7 +3,6 @@ import { Lexer, type Token } from "marked";
+ // Regex patterns moved to top level for performance
+ // Footnote identifiers must be alphanumeric, underscore, or hyphen (e.g., [^1], [^note], [^my-note])
+ // Previously used [^\]\s] which incorrectly matched regex character classes like [^\s...]
+-const footnoteReferencePattern = /\[\^[\w-]{1,200}\](?!:)/;
+ const footnoteDefinitionPattern = /\[\^[\w-]{1,200}\]:/;
+ // Allow hyphens / colons so custom tags like <ai-thinking> are tracked across
+ // blank-line interruptions (\w alone only matches [A-Za-z0-9_]).
+@@ -14,6 +13,81 @@ const openingTagPattern = /<([A-Za-z][\w:-]*)[\s>/]/;
+ // leading spaces before a definition (4+ is an indented code block).
+ const linkDefinitionPattern = /^ {0,3}\[[^\]]+\]:/m;
+ 
++// These checks run on the whole document for every streaming update. Each
++// keeps the previous input and its result; when the new input extends it,
++// only the region where a new match could end is tested again.
++interface ScanMemo {
++  found: boolean;
++  input: string;
++}
++
++const extendsMemo = (memo: ScanMemo | null, input: string): memo is ScanMemo =>
++  memo !== null &&
++  input.length >= memo.input.length &&
++  input.startsWith(memo.input);
++
++// The longest footnote match: "[^", a 200-character label, "]", one more.
++const footnoteWindow = 205;
++// A footnote reference is `[^label]` not followed by ":", that is
++// /\[\^[\w-]{1,200}\](?!:)/. Its `(?!:)` can drop a match at the very end of
++// the input once ":" arrives.
++// A match followed by a known non-colon character is permanent, so track
++// those and test the end of the input separately.
++const followedFootnoteReferencePattern = /\[\^[\w-]{1,200}\][^:]/;
++const trailingFootnoteReferencePattern = /\[\^[\w-]{1,200}\]$/;
++
++let footnoteReferenceMemo: ScanMemo | null = null;
++let footnoteDefinitionMemo: ScanMemo | null = null;
++let linkDefinitionMemo: ScanMemo | null = null;
++
++const footnoteTail = (memo: ScanMemo, input: string): string =>
++  input.slice(Math.max(0, memo.input.length - footnoteWindow));
++
++export const hasFootnoteReference = (input: string): boolean => {
++  const memo = footnoteReferenceMemo;
++  const followed = extendsMemo(memo, input)
++    ? memo.found ||
++      followedFootnoteReferencePattern.test(footnoteTail(memo, input))
++    : followedFootnoteReferencePattern.test(input);
++  footnoteReferenceMemo = { input, found: followed };
++  return (
++    followed ||
++    trailingFootnoteReferencePattern.test(input.slice(-footnoteWindow))
++  );
++};
++
++export const hasFootnoteDefinition = (input: string): boolean => {
++  const memo = footnoteDefinitionMemo;
++  const found = extendsMemo(memo, input)
++    ? memo.found || footnoteDefinitionPattern.test(footnoteTail(memo, input))
++    : footnoteDefinitionPattern.test(input);
++  footnoteDefinitionMemo = { input, found };
++  return found;
++};
++
++export const hasLinkDefinition = (input: string): boolean => {
++  const memo = linkDefinitionMemo;
++  let found: boolean;
++  if (!extendsMemo(memo, input)) {
++    found = linkDefinitionPattern.test(input);
++  } else if (memo.found) {
++    found = true;
++  } else {
++    // A new match ends after the previous input, and its label holds no "]",
++    // so it starts on the line after the previous input's last "]" (ignoring
++    // its final character, which a new ":" can follow).
++    const previousLength = memo.input.length;
++    const bracket =
++      previousLength >= 2
++        ? memo.input.lastIndexOf("]", previousLength - 2)
++        : -1;
++    const start = bracket < 0 ? 0 : input.lastIndexOf("\n", bracket) + 1;
++    found = linkDefinitionPattern.test(input.slice(start));
++  }
++  linkDefinitionMemo = { input, found };
++  return found;
++};
++
+ // HTML void elements (self-closing tags) that don't need closing tags
+ const voidElements = new Set([
+   "area",
+@@ -268,7 +342,7 @@ const reuseParsedBlocks = (
+   // compared on every tick.
+   if (
+     input.slice(0, previous.input.length) !== previous.input ||
+-    linkDefinitionPattern.test(input)
++    hasLinkDefinition(input)
+   ) {
+     return null;
+   }
+@@ -327,14 +401,14 @@ export const parseMarkdownIntoBlocks = (markdown: string): string[] => {
+   // Footnote references: [^1], [^label], etc.
+   // Footnote definitions: [^1]: text, [^label]: text, etc.
+   // Use atomic groups or possessive quantifiers to prevent backtracking
+-  const hasFootnoteReference = footnoteReferencePattern.test(markdown);
+-  const hasFootnoteDefinition = footnoteDefinitionPattern.test(markdown);
++  const markdownHasFootnoteReference = hasFootnoteReference(markdown);
++  const markdownHasFootnoteDefinition = hasFootnoteDefinition(markdown);
+ 
+   // If footnotes are present, return the entire document as a single block
+   // This ensures footnote references and definitions remain in the same mdast tree.
+   // Do not write the cache: footnote documents are not block-split, and leaving
+   // a prior entry avoids poisoning the next non-footnote stream extension check.
+-  if (hasFootnoteReference || hasFootnoteDefinition) {
++  if (markdownHasFootnoteReference || markdownHasFootnoteDefinition) {
+     return [markdown];
+   }
+ 
+diff --git a/packages/streamdown/lib/stream-repair.ts b/packages/streamdown/lib/stream-repair.ts
+new file mode 100644
+index 0000000..094fc4a
+--- /dev/null
++++ b/packages/streamdown/lib/stream-repair.ts
+@@ -0,0 +1,58 @@
++import remend, { type RemendOptions } from "remend";
++
++// Streaming appends text, and the blocks before the last two cannot change
++// once a later block exists. Remend only completes syntax in the last inline
++// block, so repairing the text after those blocks gives the same string as
++// repairing the whole message, without rescanning the message on every update.
++export interface StreamRepairState {
++  input: string;
++  options: RemendOptions | undefined;
++  repaired: string;
++  stableLength: number;
++}
++
++// Mutable blocks at the end of the document. parseMarkdownIntoBlocks reuses
++// the same window for its own cache.
++const MUTABLE_BLOCKS = 2;
++
++export const repairStream = (
++  previous: StreamRepairState | null,
++  input: string,
++  options: RemendOptions | undefined
++): StreamRepairState => {
++  // parseMarkdownIntoBlocks normalizes CR line endings, which shifts block
++  // offsets, so repair those inputs whole.
++  const extendsPrevious =
++    previous !== null &&
++    previous.options === options &&
++    !input.includes("\r") &&
++    input.length >= previous.input.length &&
++    input.startsWith(previous.input);
++  const stableLength = extendsPrevious ? previous.stableLength : 0;
++  const repaired =
++    stableLength > 0
++      ? input.slice(0, stableLength) +
++        remend(input.slice(stableLength), options)
++      : remend(input, options);
++  return { input, options, repaired, stableLength };
++};
++
++// Called with the blocks parsed from state.repaired. Moves the stable boundary
++// past every block but the last two. Only an unchanged repair is used: then
++// the blocks are those of the stream itself, while a closer appended at the
++// end (such as "$$") could make an open block look finished.
++export const advanceStableLength = (
++  state: StreamRepairState,
++  blocks: string[]
++): void => {
++  if (state.repaired !== state.input || state.input.includes("\r")) {
++    return;
++  }
++  let next = 0;
++  for (let i = 0; i < blocks.length - MUTABLE_BLOCKS; i += 1) {
++    next += blocks[i].length;
++  }
++  if (next > state.stableLength) {
++    state.stableLength = next;
++  }
++};
+-- 
+2.39.5 (Apple Git-154)
+

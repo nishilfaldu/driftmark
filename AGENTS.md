@@ -1,0 +1,3 @@
+## Clear writing
+
+For explanations, documentation, and user-facing copy, use a relaxed ASD-STE100-inspired style: short sentences, familiar words, active voice, and one clear meaning per sentence. Use consistent terms for the same concept. Explain necessary technical terms when first used. Aim for the readability of Simplified Technical English without strict specification compliance; preserve natural phrasing and technical accuracy. Keep only text that helps the reader understand, decide, or act, and remove repeated explanations.
