@@ -16,7 +16,7 @@
 
 <header class="nav">
   <div class="wrap">
-    <a class="brand" href="#top"><i></i>driftmark</a>
+    <a class="brand" href="https://github.com/nishilfaldu"><i></i>Nishil Faldu</a>
     <nav>
       <a href="https://github.com/vercel/streamdown/pull/685">#685 Link fix</a>
       <a href="https://github.com/vercel/streamdown/pull/689">#689 Speed-up</a>
@@ -27,12 +27,13 @@
 
 <main id="top">
   <div class="wrap">
+    <p class="intro">Two pull requests I sent to Streamdown, Vercel's component for showing streaming AI answers: a <a href="#pr-685">link fix</a> and a <a href="#pr-689">speed-up</a>.</p>
 
     <!-- PR 1 -->
     <section class="part" id="pr-685">
       <div class="part-head">
-        <span class="eyebrow">Bug fix</span>
-        <h2>A stray <code>[</code> damages the text after it</h2>
+        <h2 class="name">Link fix</h2>
+        <p class="tagline">A stray <code>[</code> damages the text after it</p>
         <p class="prose">Before: remend pairs it with text in later paragraphs. After: links complete only in the current block.</p>
       </div>
 
@@ -55,8 +56,8 @@
     <!-- PR 2 -->
     <section class="part" id="pr-689">
       <div class="part-head">
-        <span class="eyebrow">Performance</span>
-        <h2>Repair only the end of the message</h2>
+        <h2 class="name">Speed-up</h2>
+        <p class="tagline">Repair only the end of the message</p>
         <p class="prose">Before: every update repaired the whole message. After: only the last two blocks are repaired.</p>
       </div>
 
