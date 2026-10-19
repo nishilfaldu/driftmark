@@ -1,4 +1,4 @@
-> **Stacked on #670 and #685.** Only the last commit is new: [perf(streamdown): repair only the end of a streaming message](https://github.com/nishilfaldu/streamdown/commit/43c6616e69aefcaab0285c700d8cbe844a59c4b4). Please review that commit. The commit before it is #685, adapted to #670. I'll rebase onto `main` once both merge.
+> **Stacked on #670 and #685.** Only the last two commits are new: [perf(streamdown): repair only the end of a streaming message](https://github.com/nishilfaldu/streamdown/commit/43c6616e69aefcaab0285c700d8cbe844a59c4b4) and [fix(streamdown): repair the whole message where remend reads all of it](https://github.com/nishilfaldu/streamdown/commit/a785125). Please review those commits. The commit before it is #685, adapted to #670. I'll rebase onto `main` once both merge.
 
 ## Description
 
@@ -31,7 +31,8 @@ The changeset check fails on #670's `minor` changeset, as it does on #670 itself
 
 <img width="1960" height="942" alt="streamdown-tail-repair-rule" src="https://github.com/user-attachments/assets/28a49e71-f783-4539-a20b-1d8c48aac046" />
 
-- Full repair, as today, when the text is rewritten instead of extended, the remend options change, the text has `\r` line endings, or `parseMarkdownIntoBlocksFn`, `allowedTags` or `literalTagContent` is set.
+- The stable length stops before the first block with math: `$`, `\(` or `\[`, or `$$` anywhere. Remend tracks math across the whole message, so text after a math delimiter can repair differently without the text before it. A fenced code block counts only when it holds `$$`, because remend ignores other delimiters in code.
+- Full repair, as today, when the text is rewritten instead of extended, the remend options change, the text has `\r` line endings, custom remend `handlers` are set, or `parseMarkdownIntoBlocksFn`, `allowedTags` or `literalTagContent` is set.
 - `lib/parse-blocks.tsx`: the footnote and link-definition checks keep their previous result and scan only where a new match can end.
 
 ## Results
@@ -56,7 +57,7 @@ Table-heavy answers barely change. Most of their time goes to rendering the grow
 ## Testing
 
 - [x] All existing tests pass
-- [x] Added new tests for the changes: `stream-repair.test.ts`, 5 tests. They check that end-only repair gives the same text as a full repair at every prefix, and that each incremental check gives the same answer as its full regex.
+- [x] Added new tests for the changes: `stream-repair.test.ts`, 8 tests. They check that end-only repair gives the same text as a full repair at every prefix, with and without `inlineKatex`, on fixed and random text with math, code and emphasis. They also check custom handlers, and that each incremental check gives the same answer as its full regex.
 - [x] Manually tested the changes
 
 ## Checklist
@@ -74,4 +75,5 @@ Table-heavy answers barely change. Most of their time goes to rendering the grow
 ## Changeset
 
 - [x] I have created a changeset for these changes
+
 

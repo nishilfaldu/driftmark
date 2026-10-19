@@ -1,7 +1,8 @@
 From 43c6616e69aefcaab0285c700d8cbe844a59c4b4 Mon Sep 17 00:00:00 2001
 From: Nishil Faldu <faldund@outlook.com>
 Date: Mon, 19 Oct 2026 01:22:04 -0700
-Subject: [PATCH] perf(streamdown): repair only the end of a streaming message
+Subject: [PATCH 1/2] perf(streamdown): repair only the end of a streaming
+ message
 
 On every streaming update, Streamdown ran remend over the whole message
 and ran three regex checks (footnote references, footnote definitions,
@@ -465,6 +466,232 @@ index 0000000..094fc4a
 +    state.stableLength = next;
 +  }
 +};
+-- 
+2.39.5 (Apple Git-154)
+
+
+From a785125d9e691c15c323cbc24e72fdc41106edfb Mon Sep 17 00:00:00 2001
+From: Nishil Faldu <faldund@outlook.com>
+Date: Mon, 19 Oct 2026 14:06:54 -0700
+Subject: [PATCH 2/2] fix(streamdown): repair the whole message where remend
+ reads all of it
+
+Remend tracks math across the whole message: the count of `$` (with
+inlineKatex), the count of `$$`, the math state from `$`, `\(` and `\[`,
+and the first `$$` it finds, even inside code. So a `$` before the stable
+length could change how the end is repaired. The stable length now stops
+before the first block with math. A fenced code block counts as math only
+when it holds `$$`.
+
+Custom remend handlers can read the whole message, so with them the
+whole message is repaired, as before.
+---
+ .../__tests__/stream-repair.test.ts           | 101 ++++++++++++++++--
+ packages/streamdown/lib/stream-repair.ts      |  39 +++++--
+ 2 files changed, 120 insertions(+), 20 deletions(-)
+
+diff --git a/packages/streamdown/__tests__/stream-repair.test.ts b/packages/streamdown/__tests__/stream-repair.test.ts
+index b737473..40f184d 100644
+--- a/packages/streamdown/__tests__/stream-repair.test.ts
++++ b/packages/streamdown/__tests__/stream-repair.test.ts
+@@ -1,4 +1,4 @@
+-import remend from "remend";
++import remend, { type RemendOptions } from "remend";
+ import { describe, expect, it } from "vitest";
+ import {
+   hasFootnoteDefinition,
+@@ -31,6 +31,12 @@ const documents = [
+   // A closer appended at the end must not make an earlier open block final.
+   "Before\n\n$$\nx = 1\n\ny **2\n\nstill math\n$$\n\nafter *em*\n",
+   "Text [a\n\nb](https://exa\n\nc **d\n\ne",
++  // Remend counts math delimiters across the whole message.
++  "$$\nx\n$$\n\nA\n\nB\n\nThen $$y$$ inline.\n",
++  "a `$$` b\n\nc $$ d\n\nE\n\nF\n\ng $$ h $$ i\n",
++  "A costs $5.\n\nB\n\nC costs $6.\n\nD goes on.\n",
++  "Inline \\(a\n\nB\n\nC\n\nD **e\n",
++  "```sh\n$ npm i\n```\n\nA\n\nB\n\nC $x$ and $$y\n",
+ ];
+ 
+ const chunked = (text: string, seed: number): string[] => {
+@@ -45,13 +51,21 @@ const chunked = (text: string, seed: number): string[] => {
+   return chunks;
+ };
+ 
++const prefixes = (document: string, seed: number): string[] => {
++  let text = "";
++  return chunked(document, seed).map((chunk) => {
++    text += chunk;
++    return text;
++  });
++};
++
+ // Returns each input whose tail repair differs from a full repair.
+-const stream = (inputs: string[]) => {
++const stream = (inputs: string[], options?: RemendOptions) => {
+   let state: StreamRepairState | null = null;
+   const mismatches: string[] = [];
+   for (const input of inputs) {
+-    state = repairStream(state, input, undefined);
+-    if (state.repaired !== remend(input)) {
++    state = repairStream(state, input, options);
++    if (state.repaired !== remend(input, options)) {
+       mismatches.push(input);
+     }
+     advanceStableLength(state, parseMarkdownIntoBlocks(state.repaired));
+@@ -61,18 +75,83 @@ const stream = (inputs: string[]) => {
+ 
+ describe("tail-bounded stream repair", () => {
+   it("matches a full repair at every prefix", () => {
+-    for (const document of documents) {
+-      for (const seed of [1, 2, 3]) {
++    for (const options of [undefined, { inlineKatex: true }]) {
++      for (const document of documents) {
++        for (const seed of [1, 2, 3]) {
++          expect(stream(prefixes(document, seed), options).mismatches).toEqual(
++            []
++          );
++        }
++      }
++    }
++  });
++
++  it("matches a full repair on random math, code and emphasis", () => {
++    const pieces = [
++      "$",
++      "$$",
++      "\\(",
++      "\\)",
++      "\\[",
++      "`",
++      "```\n",
++      "~~~\n",
++      "**",
++      "_",
++      "[",
++      "](",
++      "word ",
++      "word ",
++      "word ",
++      "word.\n\n",
++      "word.\n\n",
++      "\n",
++    ];
++    let state = 4242;
++    for (const options of [undefined, { inlineKatex: true }]) {
++      for (let run = 0; run < 300; run += 1) {
+         let text = "";
+-        const inputs = chunked(document, seed).map((chunk) => {
+-          text += chunk;
+-          return text;
+-        });
+-        expect(stream(inputs).mismatches).toEqual([]);
++        const inputs: string[] = [];
++        for (let step = 0; step < 80; step += 1) {
++          state = (state * 1_103_515_245 + 12_345) % 2_147_483_648;
++          text += pieces[state % pieces.length];
++          inputs.push(text);
++        }
++        expect(stream(inputs, options).mismatches).toEqual([]);
+       }
+     }
+   });
+ 
++  it("stops the settled prefix before math outside fenced code", () => {
++    const math = stream([
++      "One $x$.\n\nTwo.\n\nThree.\n\nFour",
++      "One $x$.\n\nTwo.\n\nThree.\n\nFour and",
++    ]);
++    expect(math.state?.stableLength).toBe(0);
++
++    const fenced = stream([
++      "```sh\n$ ls\n```\n\nTwo.\n\nThree.\n\nFour",
++      "```sh\n$ ls\n```\n\nTwo.\n\nThree.\n\nFour and",
++    ]);
++    expect(fenced.state?.stableLength).toBeGreaterThan(0);
++  });
++
++  it("repairs the whole message with custom handlers", () => {
++    // Appends "!" when the message has an even number of blocks.
++    const options: RemendOptions = {
++      handlers: [
++        {
++          name: "parity",
++          handle: (text) => (text.split("\n\n").length % 2 ? text : `${text}!`),
++        },
++      ],
++    };
++    const inputs = prefixes("One.\n\nTwo.\n\nThree.\n\nFour.\n\nFive.\n", 1);
++    const { state, mismatches } = stream(inputs, options);
++    expect(mismatches).toEqual([]);
++    expect(state?.stableLength).toBe(0);
++  });
++
+   it("skips the settled prefix once later blocks exist", () => {
+     const { state } = stream([
+       "One.\n\nTwo.\n\nThree.\n\nFour",
+diff --git a/packages/streamdown/lib/stream-repair.ts b/packages/streamdown/lib/stream-repair.ts
+index 094fc4a..184a6b5 100644
+--- a/packages/streamdown/lib/stream-repair.ts
++++ b/packages/streamdown/lib/stream-repair.ts
+@@ -15,6 +15,17 @@ export interface StreamRepairState {
+ // the same window for its own cache.
+ const MUTABLE_BLOCKS = 2;
+ 
++// Remend tracks math ($, $$, \( and \[) across the whole message, so text
++// after a math delimiter can repair differently without the text before it.
++// Delimiters inside fenced code are literal, except "$$": remend finds the
++// first "$$" in the message to choose how to close an open one.
++const mathDelimiterPattern = /\$|\\[([]/;
++const fencedBlockPattern = /^ {0,3}(([`~])\2{2,})[\s\S]*\n {0,3}\1\2*\s*$/;
++
++const hasMathDelimiter = (block: string): boolean =>
++  block.includes("$$") ||
++  (mathDelimiterPattern.test(block) && !fencedBlockPattern.test(block));
++
+ export const repairStream = (
+   previous: StreamRepairState | null,
+   input: string,
+@@ -38,21 +49,31 @@ export const repairStream = (
+ };
+ 
+ // Called with the blocks parsed from state.repaired. Moves the stable boundary
+-// past every block but the last two. Only an unchanged repair is used: then
+-// the blocks are those of the stream itself, while a closer appended at the
+-// end (such as "$$") could make an open block look finished.
++// past every block but the last two, and stops before the first block with
++// math. Only an unchanged repair is used: then the blocks are those of the
++// stream itself, while a closer appended at the end (such as "$$") could make
++// an open block look finished. Custom handlers may read the whole message, so
++// with them the whole message is always repaired.
+ export const advanceStableLength = (
+   state: StreamRepairState,
+   blocks: string[]
+ ): void => {
+-  if (state.repaired !== state.input || state.input.includes("\r")) {
++  if (
++    state.repaired !== state.input ||
++    state.input.includes("\r") ||
++    state.options?.handlers?.length
++  ) {
+     return;
+   }
+-  let next = 0;
++  let end = 0;
+   for (let i = 0; i < blocks.length - MUTABLE_BLOCKS; i += 1) {
+-    next += blocks[i].length;
+-  }
+-  if (next > state.stableLength) {
+-    state.stableLength = next;
++    end += blocks[i].length;
++    if (end <= state.stableLength) {
++      continue;
++    }
++    if (hasMathDelimiter(blocks[i])) {
++      return;
++    }
++    state.stableLength = end;
+   }
+ };
 -- 
 2.39.5 (Apple Git-154)
 
