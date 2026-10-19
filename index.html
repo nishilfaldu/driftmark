@@ -20,7 +20,7 @@
     <nav>
       <a href="#pr-685">#685 Link fix</a>
       <a href="#pr-689">#689 Speed-up</a>
-      <a class="wide" href="https://github.com/vercel/streamdown">vercel/streamdown</a>
+      <a class="wide" href="https://github.com/nishilfaldu/driftmark">GitHub</a>
     </nav>
   </div>
 </header>
@@ -28,43 +28,27 @@
 <main id="top">
   <div class="wrap">
     <section class="hero">
-      <span class="eyebrow">vercel/streamdown · 2 pull requests · Nishil Faldu</span>
+      <span class="eyebrow">vercel/streamdown · Nishil Faldu</span>
       <h1>Two pull requests to Streamdown</h1>
-      <p class="lede">Streamdown is Vercel's React component that shows AI answers as they stream. #685 fixes a bug where one stray <code>[</code> damages the text after it. #689 makes each streaming update cheaper. The demos on this page run the real code from both pull requests.</p>
+      <p class="lede">A bug fix and a speed-up for Vercel's streaming Markdown component. The demos run the real code.</p>
       <div class="cards">
         <a class="card" href="https://github.com/vercel/streamdown/pull/685">
-          <div class="top"><span class="num">#685 · Bug fix</span><span class="pill">Open</span></div>
+          <span class="num">#685 · Bug fix</span>
           <span class="title">fix(remend): complete links only in the current block</span>
-          <span class="sub">A stray <code>[</code> in an earlier paragraph no longer adds junk to later text, or hides it.</span>
         </a>
         <a class="card" href="https://github.com/vercel/streamdown/pull/689">
-          <div class="top"><span class="num">#689 · Performance</span><span class="pill">Open</span></div>
+          <span class="num">#689 · Performance</span>
           <span class="title">perf(streamdown): repair only the end of a streaming message</span>
-          <span class="sub">Repairs only the last two blocks on each update. Up to 11% less main-thread work.</span>
         </a>
-      </div>
-    </section>
-
-    <section class="part">
-      <div class="part-head">
-        <span class="eyebrow">First, how Streamdown works</span>
-        <h2>One string, repaired on every update</h2>
-        <div class="prose">
-          <p>The model sends one long string of Markdown. A blank line starts a new block: a paragraph, a list, a code block. In the demos, <code>↵</code> marks a line break.</p>
-          <p>Streamdown shows the answer again after every few words. The newest words are often unfinished, like <code>**bold te</code> or <code>[the setup gu</code>. So before each update, Streamdown passes the string through <strong>remend</strong>. Remend completes what is still open. It adds the closing <code>**</code>, or a placeholder address <code>](streamdown:incomplete-link)</code>, so a half-written link already shows as a link.</p>
-        </div>
       </div>
     </section>
 
     <!-- PR 1 -->
     <section class="part" id="pr-685">
       <div class="part-head">
-        <span class="eyebrow">#685 · remend link fix</span>
+        <span class="eyebrow">#685 · Bug fix</span>
         <h2>A stray <code>[</code> damages the text after it</h2>
-        <div class="prose">
-          <p>Link text can't continue past the end of a paragraph, list item, heading or table row. But remend looks for an unclosed <code>[</code> in the whole message. If it finds one in an earlier block, it adds <code>](streamdown:incomplete-link)</code> to the end of the newest text. If the bracket starts an unfinished address, it drops everything after it.</p>
-          <p>Stray brackets are common in normal answers: a math range like <code>[0, 1)</code>, a citation like <code>[1</code>, <code>a[i</code> in prose, or a link whose <code>)</code> the model forgot.</p>
-        </div>
+        <p class="prose">Remend pairs it with text in later paragraphs. #685 completes links only in the current block.</p>
       </div>
 
       <div class="panel" id="demo1">
@@ -80,58 +64,25 @@
           <div class="col"><span class="col-label today">Today</span><div class="reader" id="demo1-main"></div><div class="added" id="demo1-main-added"></div></div>
           <div class="col"><span class="col-label pr">With #685</span><div class="reader" id="demo1-pr"></div><div class="added ok" id="demo1-pr-added"></div></div>
         </div>
-        <p class="note">Live: each column runs remend from upstream <code>main</code> or from #685 on every update, then renders the result. The damage also stays after the answer ends: with the default <code>mode="streaming"</code>, remend runs whether or not the message is still streaming.</p>
       </div>
 
-      <div class="sub-head">
-        <h3>The fix: look only at the current block</h3>
-        <div class="prose">
-          <p>A new helper, <code>findLastInlineBlockStart</code>, finds where the current block starts. It reads backwards from the end and stops at the first blank line, fence, thematic break, heading, list item or table row. So its cost depends only on the last block.</p>
-          <p>When remend looks for an unfinished link or image to complete, it now treats any <code>[</code> or <code>](</code> before that point as plain text.</p>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="pairs">
-          <div class="blocks" aria-label="The scan stops at the blank line above the last paragraph">
-            <div class="blk kept"><span class="no">1</span><span class="txt">The function returns a number in <span class="today">[</span>0, 1).</span><span class="n">plain text</span></div>
-            <div class="blk kept"><span class="no">2</span><span class="txt"> </span><span class="n">blank line</span></div>
-            <div class="cut"></div>
-            <span class="cut-label">↑ The scan stops here</span>
-            <div class="blk rep"><span class="no">3</span><span class="txt">To get a whole number, multiply by 10 and round do</span><span class="n">current block</span></div>
-          </div>
-        </div>
-<pre class="code" style="border-top:1px solid var(--line)"><span class="cm">// Brackets in earlier blocks are plain text.</span>
-<span class="add">const blockStart = findLastInlineBlockStart(text);</span>
-
-<span class="cm">// The search for an unclosed "[" stops at the block start.</span>
-<span class="rem">for (let i = text.lastIndexOf("["); i !== -1; …)</span>
-<span class="add">for (let i = text.lastIndexOf("["); i >= blockStart; …)</span></pre>
-      </div>
-
-      <ul class="checks">
-        <li><span>8 new tests in <code>link-block-scope.test.ts</code>. 7 fail on <code>main</code>. The 8th checks that normal links still complete.</span></li>
-        <li><span>Independent of other pull requests. It can merge before or after #670.</span></li>
-      </ul>
+      <a class="more" href="https://github.com/vercel/streamdown/pull/685">Read #685 on GitHub →</a>
     </section>
 
     <!-- PR 2 -->
     <section class="part" id="pr-689">
       <div class="part-head">
-        <span class="eyebrow">#689 · streaming speed-up</span>
-        <h2>Each update repaired the whole message again</h2>
-        <div class="prose">
-          <p>On every streaming update, Streamdown runs remend over the whole message, plus three regex checks for footnotes and link definitions. So each update costs more than the one before.</p>
-          <p>With #670 and #685, remend only completes syntax in the last block. It does not change the blocks before it. So the repair of those blocks is wasted work.</p>
-          <p>This pull request repairs only the end of the message: the last two blocks. Streamdown remembers where the blocks before them end, the <strong>stable length</strong>, and does not repair that text again.</p>
-        </div>
+        <span class="eyebrow">#689 · Performance</span>
+        <h2>Repair only the end of the message</h2>
+        <p class="prose">Every update repaired the whole message again. Now only the last two blocks are repaired.</p>
       </div>
 
       <div class="panel" id="demo2">
         <div class="panel-bar">
           <div class="legend">
-            <span><i class="sw-kept"></i>Kept as it is</span>
+            <span><i class="sw-kept"></i>Kept</span>
             <span><i class="sw-rep"></i>Repaired</span>
-            <span><i class="sw-line"></i>End of the stable length</span>
+            <span><i class="sw-line"></i>Stable length</span>
           </div>
           <div class="controls">
             <button class="btn" id="demo2-play" type="button">Pause</button>
@@ -146,83 +97,58 @@
             <span class="counter" id="demo2-count"></span>
           </div>
         </div>
-        <p class="note">Live: this runs <code>repairStream</code> and <code>parseMarkdownIntoBlocks</code> from the #689 branch on every update. The numbers count the characters that go through remend.</p>
       </div>
 
-      <div class="sub-head">
-        <h3>In a 20,000-token answer, the last update repairs 128 characters instead of 84,840</h3>
-        <p class="prose">One answer, sent 8 tokens per update. Characters that go through remend:</p>
-      </div>
+      <div class="sub-head"><h3>Characters repaired in a 20,000-token answer</h3></div>
       <div class="panel bars" id="chars"></div>
 
-      <div class="sub-head">
-        <h3>The stable length moves only when remend changed nothing</h3>
-        <div class="prose">
-          <p>Two texts exist on each update: the text the model sent, and the repaired text. Streamdown splits the repaired text into blocks. Remend can add a closer that the block parser reads as a new block. For example, after <code># Three [link</code> and a line break, it adds <code>](streamdown:incomplete-link)</code> on its own line. The repaired text then has one block more than the model sent, which would put the stable length one block too late.</p>
-          <p>When remend changes nothing, the two texts are the same, so the stable length is correct. Remend changes nothing on 79–91% of updates, so this rule costs almost nothing.</p>
-        </div>
+      <div class="sub-head"><h3>Main-thread time, Chrome on an Apple M1</h3></div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Speed</th><th>Answer</th><th class="num">Today</th><th class="num">With #689</th><th class="num">Change</th></tr></thead>
+          <tbody>
+            <tr><td>200 tokens/s</td><td>Mixed</td><td class="num">16.4 s</td><td class="num">15.1 s</td><td class="num pr">−7.9%</td></tr>
+            <tr><td>200 tokens/s</td><td>Code-heavy</td><td class="num">14.5 s</td><td class="num">14.7 s</td><td class="num muted">noise</td></tr>
+            <tr><td>200 tokens/s</td><td>Table-heavy</td><td class="num">20.7 s</td><td class="num">20.2 s</td><td class="num muted">noise</td></tr>
+            <tr><td>1,000 tokens/s</td><td>Mixed</td><td class="num">7.0 s</td><td class="num">6.4 s</td><td class="num pr">−8.4%</td></tr>
+            <tr><td>1,000 tokens/s</td><td>Code-heavy</td><td class="num">6.7 s</td><td class="num">5.9 s</td><td class="num pr">−11.4%</td></tr>
+            <tr><td>1,000 tokens/s</td><td>Table-heavy</td><td class="num">10.6 s</td><td class="num">10.7 s</td><td class="num muted">noise</td></tr>
+          </tbody>
+        </table>
       </div>
+
+      <div class="sub-head"><h3>Time per update</h3></div>
+      <div class="panel chart">
+        <div class="legend"><span><i style="background:var(--red)"></i>Today</span><span><i style="background:var(--blue)"></i>With #689</span></div>
+        <svg id="time" viewBox="0 0 720 300" role="img" aria-label="Time per update. Today it goes from 2.2 ms to 5.4 ms. With #689 it goes from 2.0 ms to 4.7 ms."></svg>
+      </div>
+
+      <div class="sub-head"><h3>The stable length moves only when remend changed nothing</h3></div>
       <div class="panel">
         <div class="panel-bar">
           <div class="legend">
             <span><i class="sw-today"></i>Added by remend</span>
-            <span><i class="sw-line"></i>End of the stable length</span>
-            <span><i class="sw-line-bad"></i>Stable length taken from the repaired text</span>
-            <span>Left: text from the model · Right: text after remend</span>
+            <span>Left: from the model · Right: after remend</span>
           </div>
         </div>
         <div class="pairs" id="rule"></div>
       </div>
 
-      <div class="sub-head">
-        <h3>Why it waits for #670 and #685</h3>
-        <div class="prose">
-          <p>Repairing only the end gives the same output as repairing everything only when remend completes syntax in the current block alone. Today it doesn't. Below, two unrelated <code>**</code> in earlier paragraphs pair with each other, so a full repair adds nothing. Repairing only the end sees one <code>**</code> and adds a closer that readers would see.</p>
-          <p>#670 does block-only repair for bold and italic, and #685 for links. With both, the two ways match.</p>
-        </div>
-      </div>
+      <div class="sub-head"><h3>Why it's stacked on #670 and #685</h3></div>
       <div class="tablewrap">
         <table>
-          <thead><tr><th>Remend</th><th>Full repair ends with</th><th>End-only repair ends with</th><th>Same?</th></tr></thead>
+          <thead><tr><th>Remend</th><th>Full repair</th><th>End-only repair</th><th>Same?</th></tr></thead>
           <tbody id="why670"></tbody>
         </table>
       </div>
 
-      <div class="sub-head">
-        <h3>Results</h3>
-        <p class="prose">Main-thread busy time for one 20,000-token answer. Production build of Streamdown 2.7.0 with an earlier version of this change, Chrome on an Apple M1, median of 5 runs.</p>
-      </div>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>Speed</th><th>Answer</th><th class="num">2.7.0</th><th class="num">With this change</th><th class="num">Change</th></tr></thead>
-          <tbody>
-            <tr><td>200 tokens/s</td><td>Mixed</td><td class="num">16.4 s</td><td class="num">15.1 s</td><td class="num pr">−7.9%</td></tr>
-            <tr><td>200 tokens/s</td><td>Code-heavy</td><td class="num">14.5 s</td><td class="num">14.7 s</td><td class="num muted">+1.3%, noise</td></tr>
-            <tr><td>200 tokens/s</td><td>Table-heavy</td><td class="num">20.7 s</td><td class="num">20.2 s</td><td class="num muted">−2.3%, noise</td></tr>
-            <tr><td>1,000 tokens/s</td><td>Mixed</td><td class="num">7.0 s</td><td class="num">6.4 s</td><td class="num pr">−8.4%</td></tr>
-            <tr><td>1,000 tokens/s</td><td>Code-heavy</td><td class="num">6.7 s</td><td class="num">5.9 s</td><td class="num pr">−11.4%</td></tr>
-            <tr><td>1,000 tokens/s</td><td>Table-heavy</td><td class="num">10.6 s</td><td class="num">10.7 s</td><td class="num muted">+0.3%, noise</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="prose">Time per update still grows with the length of the answer, but more slowly. Mixed answer, 200 tokens/s:</p>
-      <div class="panel chart">
-        <div class="legend"><span><i style="background:var(--red)"></i>Streamdown 2.7.0</span><span><i style="background:var(--blue)"></i>2.7.0 + this change</span></div>
-        <svg id="time" viewBox="0 0 720 300" role="img" aria-label="Time per update. Streamdown 2.7.0 goes from 2.2 ms to 5.4 ms. With this change it goes from 2.0 ms to 4.7 ms."></svg>
-      </div>
-      <p class="prose">Table-heavy answers barely change. Most of their time goes to rendering the growing table again on each update, which this pull request doesn't touch.</p>
-
-      <ul class="checks">
-        <li><span>5 new tests in <code>stream-repair.test.ts</code>. They check that end-only repair gives the same text as a full repair at every prefix, and that each incremental check gives the same answer as its full regex.</span></li>
-        <li><span>Full repair, as today, when the text is rewritten instead of extended, the remend options change, or a custom block parser is set.</span></li>
-      </ul>
+      <a class="more" href="https://github.com/vercel/streamdown/pull/689">Read #689 on GitHub →</a>
     </section>
   </div>
 </main>
 
 <footer class="wrap">
-  <p>Both pull requests are open on <a href="https://github.com/vercel/streamdown">vercel/streamdown</a>: <a href="https://github.com/vercel/streamdown/pull/685">#685</a> and <a href="https://github.com/vercel/streamdown/pull/689">#689</a>. #689 is stacked on <a href="https://github.com/vercel/streamdown/pull/670">#670</a> by bendrucker and on #685.</p>
-  <p>By Nishil Faldu.</p>
+  <p>By Nishil Faldu · <a href="https://github.com/nishilfaldu/driftmark">Source</a></p>
 </footer>
 
 <script type="module" src="app.js"></script>

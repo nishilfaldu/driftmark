@@ -58,12 +58,9 @@ code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
 .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
 .card { display: grid; gap: 10px; align-content: start; border: 1px solid var(--line); border-radius: 12px; padding: 20px; background: var(--panel); text-decoration: none; transition: border-color 0.15s; }
 .card:hover { border-color: var(--line-2); }
-.card .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .card .num { font: 500 0.85rem/1 var(--f-mono); color: var(--ink-3); }
 .card .title { font: 500 0.95rem/1.45 var(--f-mono); color: var(--ink); word-break: break-word; }
 .card .sub { color: var(--ink-2); font-size: 0.92rem; }
-.pill { display: inline-flex; align-items: center; gap: 6px; font: 500 0.75rem/1 var(--f-body); border: 1px solid var(--line-2); border-radius: 999px; padding: 5px 10px; color: var(--ink-2); white-space: nowrap; }
-.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
 @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
 
 /* Sections */
@@ -130,8 +127,7 @@ input[type="range"] { flex: 1 1 140px; max-width: 260px; accent-color: var(--ink
 .sw-kept { background: var(--panel-2); border: 1px solid var(--line-2); }
 .sw-rep { background: var(--blue-soft); border: 1px solid var(--blue); }
 .sw-today { background: var(--red-soft); border: 1px solid var(--red); }
-.sw-line { height: 0 !important; width: 18px !important; border-top: 2px dashed var(--blue); border-radius: 0 !important; }
-.sw-line-bad { height: 0 !important; width: 18px !important; border-top: 2px dashed var(--red); border-radius: 0 !important; }
+.legend i.sw-line { height: 0; width: 18px; border-top: 2px dashed var(--blue); border-radius: 0; }
 
 /* Live tail-repair demo */
 .tail-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
@@ -186,6 +182,9 @@ pre.code { margin: 0; padding: 16px; overflow-x: auto; font: 0.8rem/1.7 var(--f-
 pre.code .cm { color: var(--ink-3); }
 pre.code .add { color: var(--blue); }
 pre.code .rem { color: var(--ink-3); text-decoration: line-through; }
+
+.more { justify-self: start; font-size: 0.9rem; color: var(--ink-2); text-decoration: none; border: 1px solid var(--line-2); border-radius: 6px; padding: 8px 12px; }
+.more:hover { color: var(--ink); border-color: var(--ink-3); }
 
 footer { padding-block: 48px 64px; color: var(--ink-3); font-size: 0.88rem; display: grid; gap: 10px; }
 footer a { color: var(--ink-2); }
