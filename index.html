@@ -5,23 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Two Streamdown Pull Requests</title>
 <meta name="description" content="A link-repair fix and a streaming speed-up for Streamdown, Vercel's React component for streaming Markdown. The demos run the real code.">
-<meta name="theme-color" content="#000000">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23ededed'/%3E%3Cpath d='M16 1a15 15 0 0 1 0 30z' fill='%23808080'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='10' fill='%231f1f1f'/%3E%3Cpath d='M16 8.5a7.5 7.5 0 0 0 0 15z' fill='%23fff'/%3E%3Cpath d='M16 8.5a7.5 7.5 0 0 1 0 15z' fill='%235b8def'/%3E%3C/svg%3E">
+<script>try { var t = localStorage.getItem("driftmark-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-system" viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 14h5M8 11.5V14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-light" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-dark" viewBox="0 0 16 16"><path d="M13.5 9.8A6 6 0 0 1 6.2 2.5a6 6 0 1 0 7.3 7.3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+</svg>
+
 <header class="nav">
   <div class="wrap">
     <a class="brand" href="https://github.com/nishilfaldu"><i></i>Nishil Faldu</a>
-    <nav>
-      <a href="https://github.com/vercel/streamdown/pull/685">#685 Link fix</a>
-      <a href="https://github.com/vercel/streamdown/pull/689">#689 Speed-up</a>
-      <a class="wide" href="https://github.com/nishilfaldu/driftmark">GitHub</a>
-    </nav>
+    <div class="end">
+      <nav>
+        <a href="https://github.com/vercel/streamdown/pull/685">#685 Link fix</a>
+        <a href="https://github.com/vercel/streamdown/pull/689">#689 Speed-up</a>
+        <a class="wide" href="https://github.com/nishilfaldu/driftmark">GitHub</a>
+      </nav>
+      <div class="themes" id="themes" role="group" aria-label="Theme">
+        <button type="button" data-theme="system" aria-label="System theme" title="System"><svg><use href="#i-system"/></svg></button>
+        <button type="button" data-theme="light" aria-label="Light theme" title="Light"><svg><use href="#i-light"/></svg></button>
+        <button type="button" data-theme="dark" aria-label="Dark theme" title="Dark"><svg><use href="#i-dark"/></svg></button>
+      </div>
+    </div>
   </div>
 </header>
 

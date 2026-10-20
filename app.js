@@ -299,7 +299,7 @@ $("rule").innerHTML =
   for (const [data, color] of [[today, "var(--red)"], [pr, "var(--blue)"]]) {
     s += `<polyline fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" points="${data.map((v, k) => `${x(k)},${y(v)}`).join(" ")}"/>`;
     s += `<circle cx="${x(9)}" cy="${y(data[9])}" r="4" fill="${color}"/>`;
-    s += `<text x="${x(9) + 10}" y="${y(data[9]) + 4}" style="fill:var(--ink);font-family:var(--f-body);font-size:13px;font-weight:600">${data[9].toFixed(1)} ms</text>`;
+    s += `<text x="${x(9) + 10}" y="${y(data[9]) + 4}" style="fill:var(--ink);font-family:var(--f-body);font-size:13px;font-weight:500">${data[9].toFixed(1)} ms</text>`;
   }
   $("time").innerHTML = s;
 }
@@ -361,4 +361,23 @@ $("rule").innerHTML =
   }
   show(0, { scroll: false, record: false });
   fromHash();
+}
+
+/* Theme: system (no attribute on <html>), light or dark */
+
+{
+  const buttons = [...document.querySelectorAll("#themes button")];
+  const apply = (t) => {
+    if (t) document.documentElement.dataset.theme = t;
+    else delete document.documentElement.dataset.theme;
+    for (const b of buttons) b.setAttribute("aria-pressed", String(b.dataset.theme === (t || "system")));
+  };
+  apply(document.documentElement.dataset.theme);
+  for (const b of buttons) {
+    b.onclick = () => {
+      const t = b.dataset.theme === "system" ? null : b.dataset.theme;
+      apply(t);
+      try { if (t) localStorage.setItem("driftmark-theme", t); else localStorage.removeItem("driftmark-theme"); } catch {}
+    };
+  }
 }
